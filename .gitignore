@@ -1,0 +1,4 @@
+*.lock
+MotionTracking/MotionTracking/bin
+MotionTracking/MotionTracking/obj
+MotionTracking/.vs
