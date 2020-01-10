@@ -12,7 +12,6 @@ namespace MotionTracking
     
             var visualizerData = new VisualizerData();
             var playerManager = new PlayerManager();
-            int counter = 0;
             using (Device device = Device.Open())
             {
                 device.StartCameras(new DeviceConfiguration()
@@ -48,7 +47,6 @@ namespace MotionTracking
                                 // For reference on how to read frame data, please take a look at Renderer.NativeWindow_Render().
                                 visualizerData.Frame = frame.Reference();
                                 var countBodies = visualizerData.TakeFrameWithOwnership().NumberOfBodies;
-                     //           Console.WriteLine("Players " + countBodies);
                                 if (countBodies > 0)
                                 {
                                     playerManager.ConvertFrameToPlayerData(frame);
@@ -62,6 +60,7 @@ namespace MotionTracking
 
                             }
                         }
+                        Console.WriteLine("_KEEPALIVE_");
                     }
                 }
             }

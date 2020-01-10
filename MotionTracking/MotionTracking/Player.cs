@@ -14,9 +14,14 @@ namespace MotionTracking
         // private List<Skeleton> OldSkeletons = new List<Skeleton>();
         private readonly int ActionTriggerTolerance = 100;
         private readonly int MaxPastBodiesStored = 150; //30 frames by 5 seconds
-        private List<TimestampSkeleton> TimestampSkeletons;  // holds past skeletons with time for motion tracking
+        private readonly List<TimestampSkeleton> TimestampSkeletons;  // holds past skeletons with time for motion tracking
         private readonly int CancelThershold = 5;
         private int CancelTriggers = 0;
+        private readonly int ZoomThreshold = 5;
+        private int ZoomTriggers = 0;
+        private double CancelBeginTime = -1;
+        private bool BeganZoom;
+
 
         private readonly CSXDataWriter CSXDataWriter;
 
@@ -26,6 +31,7 @@ namespace MotionTracking
             BodyID = body.Id;
             skeleton = body.Skeleton;
             Updated = true;
+
             TimestampSkeletons = new List<TimestampSkeleton>(MaxPastBodiesStored);
             UpdatePastSkeletons(new TimestampSkeleton(skeleton, timestamp));
             CSXDataWriter = new CSXDataWriter();
@@ -84,6 +90,7 @@ namespace MotionTracking
 
                 skeleton = body.Skeleton;
                 UpdatePastSkeletons(new TimestampSkeleton(skeleton, timestamp));
+
                 Updated = true;
 
             }
@@ -101,8 +108,7 @@ namespace MotionTracking
                 TimestampSkeletons.TrimExcess();
             }
             TimestampSkeletons.Insert(0, timestampSkeleton);
-          /*  Console.WriteLine("Skeletons: " + TimestampSkeletons.Count);
-            Console.WriteLine(TimestampSkeletons[0].Timestamp);*/
+
         }
         public void LogCSX(int jointEnum) //logs the coordinates of a joint to a csx file
         {
@@ -130,7 +136,17 @@ namespace MotionTracking
                 CancelTriggers++;
                 Console.WriteLine("Cancel triggers" + CancelTriggers);
             }
-
+            if(CancelTriggers == 1) //player may have begun an attempt to cancel.
+            {
+                CancelBeginTime = TimestampSkeletons[0].Timestamp;
+            }
+            if(CancelTriggers >= 1)
+            {
+                if(TimestampSkeletons[0].Timestamp - CancelBeginTime > 5000)
+                {
+                    CancelTriggers = 0;
+                }
+            }
             if (CancelTriggers >= CancelThershold)
             {
                 CancelThresholdEventArgs args = new CancelThresholdEventArgs();
@@ -141,11 +157,7 @@ namespace MotionTracking
         }
         protected virtual void OnCancelTrigger(CancelThresholdEventArgs e)
         {
-            EventHandler<CancelThresholdEventArgs> handler = CancelThresholdReached;
-            if (handler != null)
-            {
-                handler(this, e);
-            }
+            CancelThresholdReached?.Invoke(this, e);
 
         }
     
@@ -205,16 +217,7 @@ namespace MotionTracking
             double ZSpeed = (double)ZAxisSpeed(jointEnum);
             return Math.Sqrt(Xspeed * Xspeed + Yspeed * Yspeed + ZSpeed * ZSpeed);
         }
-        public double QuaternionComparer(int jointEnum1, int jointEnum2)//TODO switch tp private
-        {
-            //   return Quaternion.Dot(skeleton.GetJoint(jointEnum1).Quaternion, skeleton.GetJoint(jointEnum2).Quaternion);
-            Vector3 j1 = skeleton.GetJoint(jointEnum1).Position;
-            Vector3 j2 = skeleton.GetJoint(jointEnum2).Position;
-            Console.WriteLine("joint 1" + j1.ToString());
-            Console.WriteLine("joint 2" + j2.ToString());
-            return Vector3.Distance(skeleton.GetJoint(jointEnum1).Position, skeleton.GetJoint(jointEnum2).Position);
-        }
-        public Vector3 HeadPosition()
+        public Vector3 AverageEyesPosition()
         {
             return Vector3.Divide(Vector3.Add(skeleton.GetJoint((int)JointIndices.EyeRight).Position, skeleton.GetJoint((int)JointIndices.EyeLeft).Position),2); 
             //Indices for vectors can be found at https://docs.microsoft.com/en-us/azure/kinect-dk/body-joints
@@ -258,6 +261,7 @@ namespace MotionTracking
             return true;
 
         }
+
         private Vector3 JointToVector(Joint joint)
         {
             return joint.Position;
@@ -268,12 +272,98 @@ namespace MotionTracking
             Vector3 result = Vector3.Abs(Vector3.Subtract(positionOne, positionTwo));
             return ((result.X < tolerance || !xAxis) && (result.Y < tolerance || !yAxis) && (result.Z < tolerance || !zAxis));
         }
+        private float ArmRightBend()
+        {
+            return JointBend((int)JointIndices.WristRight, (int)JointIndices.ElbowRight, (int)JointIndices.ShoulderRight);
+        }
+        private float ArmLeftBend()
+        {
+            return JointBend((int)JointIndices.WristLeft, (int)JointIndices.ElbowLeft, (int)JointIndices.ShoulderLeft);
+        }
+        private float JointBend(int jointEnum1, int jointEnum2, int jointEnum3)
+        {
+            var jointPositionOne = skeleton.GetJoint(jointEnum1).Position;
+            var jointPositionTwo = skeleton.GetJoint(jointEnum2).Position;
+            var jointPositionThreee = skeleton.GetJoint(jointEnum3).Position;
+            var v1 = Vector3.Subtract(jointPositionOne, jointPositionTwo);
+            var v2 = Vector3.Subtract(jointPositionTwo, jointPositionThreee);
+            return 1 - Vector3.Dot(Vector3.Normalize(v1), Vector3.Normalize(v2));
+        }
+        private bool ArmsAtZoomAngle()
+        {
+            float lowerThreshold = .6F;
+            float higherThreshold = .9F;
+            return (ArmLeftBend() > lowerThreshold && ArmLeftBend() < higherThreshold && ArmRightBend() > lowerThreshold && ArmRightBend() < higherThreshold);
+        }
+        public void AddZoomTrigger()
+        {
+            if (ArmsAtZoomAngle())
+            {
+                ZoomTriggers++;
+            }
+            
+            if(ZoomTriggers > ZoomThreshold)
+            {
+                if(BeganZoom == false)
+                {
 
+                    ZoomSoundThresholdEventArgs a = new ZoomSoundThresholdEventArgs();
+                    OnZoomSoundTrigger(a);
+                }
+                BeganZoom = true;
+                ZoomThresholdEventArgs args = new ZoomThresholdEventArgs();
+                args.Threshold = ZoomThreshold;
+                OnZoomTrigger(args);
+            }
+        }
+        protected virtual void OnZoomTrigger(ZoomThresholdEventArgs e)
+        {
+            ZoomThresholdReached?.Invoke(this, e);
+        }
+        public void AddZoomSoundTrigger()
+        {
+            ZoomSoundThresholdEventArgs args = new ZoomSoundThresholdEventArgs();
+            OnZoomSoundTrigger(args);
+        }
+        protected virtual void OnZoomSoundTrigger(ZoomSoundThresholdEventArgs e)
+        {
+            ZoomSoundThresholdReached?.Invoke(this, e);
+
+        }
+        public double WristToWristDistance()
+        {
+            return Vector3.Distance(skeleton.GetJoint((int)JointIndices.WristRight).Position, skeleton.GetJoint((int)JointIndices.WristLeft).Position);
+        }
+        public string HandPositionsString()
+        {
+            return ImprovedVectorToString(skeleton.GetJoint((int)JointIndices.HandLeft).Position) +" " +ImprovedVectorToString(skeleton.GetJoint((int)JointIndices.HandRight).Position);
+        }
+        public string ImprovedVectorToString(Vector3 jointPosition)
+        {
+            return jointPosition.ToString().Trim(new char[] { ',', '<', '>' });
+        }
+        public void StopGestureActivation()
+        {
+            CancelTriggers = 0;
+            ZoomTriggers = 0;
+            BeganZoom = false;
+        }
         public event EventHandler<CancelThresholdEventArgs>  CancelThresholdReached;
+        public event EventHandler<ZoomThresholdEventArgs> ZoomThresholdReached;
+        public event EventHandler<ZoomSoundThresholdEventArgs> ZoomSoundThresholdReached;
+
     }
     public class CancelThresholdEventArgs : EventArgs
     {
         public int Threshold { get; set; }
 
+    }
+    public class ZoomThresholdEventArgs: EventArgs //add reto?
+    {
+        public int Threshold { get; set; }
+    }
+    public class ZoomSoundThresholdEventArgs : EventArgs 
+    {
+        public int Threshold { get; set; }
     }
 }
