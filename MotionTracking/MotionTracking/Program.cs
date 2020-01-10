@@ -61,6 +61,7 @@ namespace MotionTracking
                             }
                         }
                         Console.WriteLine("_KEEPALIVE_");
+                        Console.ReadLine();
                     }
                 }
             }

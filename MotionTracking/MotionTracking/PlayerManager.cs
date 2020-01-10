@@ -140,11 +140,11 @@ namespace MotionTracking
         }
         public void c_ZoomThresholdReached(object sender, EventArgs e)//set private?
         {        
-            Console.WriteLine("{0}{1}{2}{3}",start,"_EXPLODE_",LeadPlayer.WristToWristDistance(),end);
+            Console.WriteLine("{0}{1}{2}{3}",start,"_EXPLODE_ ",LeadPlayer.WristToWristDistance(),end);
         }
         public void c_OrbitThresholdReached(object sender, EventArgs e)
         {
-            Console.WriteLine("{0}{1}{2}{3}",start,"_ORBIT_",LeadPlayer.HandPositionsString(),end);
+            Console.WriteLine("{0}{1}{2}{3}",start,"_ORBIT_ ",LeadPlayer.HandPositionsString(),end);
         }
         public void c_ZoomSoundThresholdReached(object sender, EventArgs e)
         {
@@ -153,7 +153,7 @@ namespace MotionTracking
         }
         private void EyePositionPrint()
         {
-            Console.WriteLine("{0}{1}{2}", start, LeadPlayer.ImprovedVectorToString(LeadPlayer.AverageEyesPosition()), end);
+            Console.WriteLine("{0}{1}{2}{4}", start, "_HEADPOSITION_ ", LeadPlayer.ImprovedVectorToString(LeadPlayer.AverageEyesPosition()), end);
         }
         private void AllPlayersGonePrint()
         {
