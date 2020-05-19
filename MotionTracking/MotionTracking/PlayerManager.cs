@@ -153,7 +153,7 @@ namespace MotionTracking
         }
         private void EyePositionPrint()
         {
-            Console.WriteLine("{0}{1}{2}{4}", start, "_HEADPOSITION_ ", LeadPlayer.ImprovedVectorToString(LeadPlayer.AverageEyesPosition()), end);
+            Console.WriteLine("{0}{1}{2}{3}", start, "_HEADPOSITION_ ", LeadPlayer.ImprovedVectorToString(LeadPlayer.AverageEyesPosition()), end);
         }
         private void AllPlayersGonePrint()
         {
