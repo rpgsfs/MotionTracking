@@ -25,7 +25,7 @@ namespace MotionTracking
                 var deviceCalibration = device.GetCalibration();
                 using (Tracker tracker = Tracker.Create(deviceCalibration, new TrackerConfiguration() { ProcessingMode = TrackerProcessingMode.Gpu, SensorOrientation = SensorOrientation.Default }))
                 {
-                    while (true)
+                    do
                     {
                         using (Capture sensorCapture = device.GetCapture())
                         {
@@ -52,8 +52,8 @@ namespace MotionTracking
                                     playerManager.ConvertFrameToPlayerData(frame);
                                     playerManager.LeaderLogic();
                                     playerManager.CheckEvents();
-                                    
-                                  
+
+
 
                                 }
                                 else playerManager.DisposeAllPlayers();
@@ -61,8 +61,7 @@ namespace MotionTracking
                             }
                         }
                         Console.WriteLine("_KEEPALIVE_");
-                        Console.ReadLine();
-                    }
+                    } while (Console.ReadLine() == "keepalive");
                 }
             }
          
